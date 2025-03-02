@@ -5,6 +5,7 @@
     windows_subsystem = "windows"
 )]
 
+
 use auto_launch::AutoLaunch;
 use std::{env::current_exe, io::BufReader};
 
