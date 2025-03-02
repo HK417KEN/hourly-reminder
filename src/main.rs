@@ -1,137 +1,103 @@
+
+// 隐藏编译后打开程序的CMD窗口
+#![cfg_attr(
+    all(target_os = "windows", not(debug_assertions)),
+    windows_subsystem = "windows"
+)]
+
 use auto_launch::AutoLaunch;
-use std::{env::current_exe, io::BufReader, time::Duration};
-use tao::event_loop::{EventLoopBuilder, ControlFlow};
-use tray_icon::{menu::{Menu, MenuEvent, MenuItem}, Icon, TrayIconBuilder, TrayIconEvent};
+use std::{env::current_exe, io::BufReader};
 
 mod tray_icon_tao;
 
-// const ICON: &[u8] = include_bytes!("../icon.png");
+mod timer;
 
 
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     #[cfg(not(target_os = "windows"))]
     panic!("Not Implemented yet!");
 
-    println!("Hello, world!");
+    println!("running");
 
-    match init() {
-        Ok(_) => (),
-        Err(e) => panic!("{}", e)
-    }
+    init()
 }
 
+// 初始化程序
 pub fn init() -> Result<(), Box<dyn std::error::Error>> {
 
+    // 程序运行时马上播放一次音效
     play_audio()?;
 
-    // init_sys_tray()?;
-    tray_icon_tao::main()?;
-
-    // auto_launch(false)?;
+    // 托盘图标和定时功能
+    tray_icon_tao::run()?;
 
     Ok(())
 }
 
-pub fn auto_launch(auto_launch: bool) -> Result<(), Box<dyn std::error::Error>> {
-
-    let current_exe = current_exe()?;
-
+// 检查是否已启用 开机自启
+pub fn check_is_enabled_auto_launch() -> bool {
+    let current_exe = current_exe().unwrap();
     let app_name = env!("CARGO_PKG_NAME");
     let app_path = &current_exe.display().to_string();
     let args = &[""];
     let auto = AutoLaunch::new(app_name, app_path, args);
 
-    if auto_launch {
-        // enable the auto launch
+    auto.is_enabled().unwrap()
+}
+
+// 开机自启
+pub fn auto_launch(auto_launch: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let current_exe = current_exe()?;
+    let app_name = env!("CARGO_PKG_NAME");
+    let app_path = &current_exe.display().to_string();
+    let args = &[""];
+    let auto = AutoLaunch::new(app_name, app_path, args);
+
+    let check_is_enabled_auto_launch = check_is_enabled_auto_launch();
+
+    if auto_launch && !check_is_enabled_auto_launch {
+        // 启用 开机自启
         auto.enable()?;
-        auto.is_enabled().unwrap();
-    } else {
-        // disable the auto launch
+    } else if !auto_launch && check_is_enabled_auto_launch {
+        // 禁用 开机自启
         auto.disable()?;
-        auto.is_enabled().unwrap();
     }
 
     Ok(())
 }
 
-/*
-fn load_icon() -> Result<Icon, Box<dyn std::error::Error>> {
-    let (icon_rgba, icon_width, icon_height) = {
-        let image = image::load_from_memory_with_format(ICON, image::ImageFormat::Png)?.into_rgba8();
-        let (width, height) = image.dimensions();
-        let rgba = image.into_raw();
-        (rgba, width, height)
-    };
-    Ok(tray_icon::Icon::from_rgba(icon_rgba, icon_width, icon_height)?)
-}
-*/
+// 播放音效
+pub fn play_audio() -> Result<(), Box<dyn std::error::Error>> {
 
-pub fn init_sys_tray () -> Result<(), Box<dyn std::error::Error>> {
-
-    let tray_menu = Menu::new();
-    tray_menu.append(&MenuItem::new("退出", true, None))?;
-
-
-    println!("loading icon");
-
-    //let icon = load_icon()?;
-    let icon = Icon::from_path("icon.ico", Some((500, 500)))?;
-
-    println!("icon loaded");
-
-    TrayIconBuilder::new()
-        .with_menu(Box::new(tray_menu))
-        .with_tooltip("system-tray - tray icon library!")
-        .with_icon(icon)
-        .build()?;
+    tokio::spawn( async {
+        let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
+        let sink = rodio::Sink::try_new(&stream_handle).unwrap();
+        let path: &'static str;
     
-    let event_loop = EventLoopBuilder::new().build();
+        if std::fs::exists("audio.ogg").is_ok_and(|bool| bool == true) {
+            path = "audio.ogg";
+        } else if std::fs::exists("audio.wav").is_ok_and(|bool| bool == true) {
+            path = "audio.wav";
+        } else if std::fs::exists("assets/audio.ogg").is_ok_and(|bool| bool == true) {
+            path = "assets/audio.ogg";
+        } else if std::fs::exists("assets/audio.wav").is_ok_and(|bool| bool == true) {
+            path = "assets/audio.wav";
+        } else if std::fs::exists("default.ogg").is_ok_and(|bool| bool == true) {
+            path = "default.ogg";
+        } else if std::fs::exists("assets/default.ogg").is_ok_and(|bool| bool == true) {
+            path = "assets/default.ogg";
+        } else {
+            panic!("未找到音频文件!");
+        }
     
-    let proxy = event_loop.create_proxy();
-    std::thread::spawn(move || {
-        loop {
-            proxy.send_event(()).ok();
-            std::thread::sleep(Duration::from_millis(50));
-        }
+        let file = std::fs::File::open(path).unwrap();
+        sink.append(rodio::Decoder::new(BufReader::new(file)).unwrap());
+    
+        sink.sleep_until_end();
     });
-
-    event_loop.run(move |_event, _, control_flow| {
-        *control_flow = ControlFlow::Wait;
-
-        if let Ok(event) = TrayIconEvent::receiver().try_recv() {
-            println!("tray event: {:?}", event);
-        }
-
-        if let Ok(event) = MenuEvent::receiver().try_recv() {
-            println!("menu event: {:?}", event);
-        }
-
-    });
-
-}
-
-fn play_audio() -> Result<(), Box<dyn std::error::Error>> {
-
-    let (_stream, stream_handle) = rodio::OutputStream::try_default()?;
-    let sink = rodio::Sink::try_new(&stream_handle)?;
-    let path: &'static str;
-
-    if std::fs::exists("audio.ogg").is_ok_and(|bool| bool == true) {
-        path = "assets/audio.ogg";
-    } else if std::fs::exists("audio.wav").is_ok_and(|bool| bool == true) {
-        path = "assets/audio.wav";
-    } else if std::fs::exists("assets/default.ogg").is_ok_and(|bool| bool == true) {
-        path = "assets/default.ogg";
-    } else {
-        panic!("Audio not found!");
-    }
-
-    let file = std::fs::File::open(path)?;
-    sink.append(rodio::Decoder::new(BufReader::new(file))?);
-
-    sink.sleep_until_end();
 
     Ok(())
 }

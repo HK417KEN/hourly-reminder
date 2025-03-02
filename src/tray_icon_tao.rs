@@ -4,8 +4,6 @@
 //
 // Modified by [KEN]
 
-
-
 use tao::{
     event::Event,
     event_loop::{ControlFlow, EventLoopBuilder},
@@ -15,13 +13,24 @@ use tray_icon::{
     TrayIconBuilder /* , TrayIconEvent, */
 };
 
+use crate::timer;
+
 enum UserEvent {
     //TrayIconEvent(tray_icon::TrayIconEvent),
     MenuEvent(tray_icon::menu::MenuEvent),
 }
 
-pub fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/icon.png");
+pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+    let timer_switch = timer::TimerSwitch::new();
+    let _ = timer_switch.spawn_task();
+
+    timer_switch.enable();
+
+    let enabled_icon_path = concat!(env!("CARGO_MANIFEST_DIR"), "/icon_enabled.png");
+    let disabled_icon_path = concat!(env!("CARGO_MANIFEST_DIR"), "/icon_disabled.png");
+
+    let enabled_icon = load_icon(std::path::Path::new(enabled_icon_path));
+    let disabled_icon = load_icon(std::path::Path::new(disabled_icon_path));
 
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
 
@@ -42,7 +51,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tray_menu = Menu::new();
 
     let set_enabled_ci = CheckMenuItem::new("已启用", true, true, None);
-    let set_auto_launch_ci = CheckMenuItem::new("开机自启", true, true, None);
+    let set_auto_launch_ci = CheckMenuItem::new("开机自启", true, crate::check_is_enabled_auto_launch(), None);
     let about_i = PredefinedMenuItem::about(
         Some("关于"),
         Some(AboutMetadata {
@@ -66,13 +75,11 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let _ = MenuEvent::receiver();
     // let _ = TrayIconEvent::receiver();
-
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
 
         match event {
             Event::NewEvents(tao::event::StartCause::Init) => {
-                let icon = load_icon(std::path::Path::new(path));
 
                 // We create the icon once the event loop is actually running
                 // to prevent issues like https://github.com/tauri-apps/tray-icon/issues/90
@@ -80,7 +87,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                     TrayIconBuilder::new()
                         .with_menu(Box::new(tray_menu.clone()))
                         .with_tooltip("hourly reminder")
-                        .with_icon(icon)
+                        .with_icon(enabled_icon.clone())
                         .build()
                         .unwrap(),
                 );
@@ -97,47 +104,47 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             /*
+            // 托盘图标事件
             Event::UserEvent(UserEvent::TrayIconEvent(event)) => {
                 println!("{event:?}");
             }
             */
 
+            // 托盘菜单事件
             Event::UserEvent(UserEvent::MenuEvent(event)) => {
-                println!("{event:?}");
 
                 if event.id == set_enabled_ci.id() {
 
                     if set_enabled_ci.is_checked() {
                         // continue reminder
                         println!("continue reminder");
+                        let _ = tray_icon.as_mut().unwrap().set_icon(Some(enabled_icon.clone()));
                         set_enabled_ci.set_text("已启用");
+                        let _ = crate::play_audio();
+                        timer_switch.enable();
                     } else {
                         // stop reminder
                         println!("stop reminder");
+                        let _ = tray_icon.as_mut().unwrap().set_icon(Some(disabled_icon.clone()));
                         set_enabled_ci.set_text("未启用");
+                        timer_switch.disable();
                     }
 
                 } else if event.id == set_auto_launch_ci.id() {
 
-                    if set_auto_launch_ci.is_checked() {
-                        // set auto launch
-                        println!("set auto launch");
-                    } else {
-                        // unset auto launch
-                        println!("unset auto launch");
-                    }
+                    let _ = crate::auto_launch(set_auto_launch_ci.is_checked());
 
                 } else if event.id == quit_i.id() {
-                    tray_icon.take();
                     *control_flow = ControlFlow::Exit;
                 }
             }
 
             _ => {}
         }
-    })
+    });
 }
 
+// 加载图标
 fn load_icon(path: &std::path::Path) -> tray_icon::Icon {
     let (icon_rgba, icon_width, icon_height) = {
         let image = image::open(path)
