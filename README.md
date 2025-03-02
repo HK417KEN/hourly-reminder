@@ -1,1 +1,1 @@
-# hourly reminder [WIP]
+# hourly reminder

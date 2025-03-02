@@ -1,6 +1,6 @@
 use chrono::{DateTime, Local, Timelike};
 use tokio::sync::watch;
-use tokio::time::{self, Duration};
+use tokio::time::{self, Duration, Instant, MissedTickBehavior};
 
 /*
 #[tokio::main]
@@ -54,46 +54,18 @@ impl TimerSwitch {
                     // 接收到 启用 信号
 
                     loop {
-                        // 计算下一个整点时间
-                        let now = Local::now();
-                        let mut next: DateTime<Local>;
-
-                        // 方便 Debug
-                        if true {
-                            next = now
-                            .with_minute(0)
-                            .unwrap()
-                            .with_second(0)
-                            .unwrap()
-                            .with_nanosecond(0)
-                            .unwrap();
-
-                            // 如果当前已过整点，加1小时
-                            if next > now {
-                                next -= chrono::Duration::hours(1);
-                            }
-                            next += chrono::Duration::hours(1);
-                        } else {
-                            next = now
-                            .with_second(0)
-                            .unwrap()
-                            .with_nanosecond(0)
-                            .unwrap();
-
-                            // 每分钟运行
-                            if next > now {
-                                next -= chrono::Duration::minutes(1);
-                            }
-                            next += chrono::Duration::minutes(1);
-
-                            println!("Next time: {}", next);
-                        }
-
-                        // 计算等待时间 并 添加50ms缓冲
-                        let sleep_duration = (next - now).to_std().unwrap() + Duration::from_millis(50);
+                        // 计算第一个触发时间
+                        let start = next_start_of_hour(Local::now());
+                        let mut interval = time::interval_at(
+                            Instant::now() + (start - Local::now()).to_std().unwrap(),
+                            Duration::from_secs(60)
+                        );
+                        
+                        // 关键配置：跳过积压的触发
+                        interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
                         tokio::select! {
-                            _ = time::sleep(sleep_duration) => {
+                            _ = interval.tick() => {
                                 println!("Exec time: {}", Local::now().format("%H:%M:%S"));
                                 crate::play_audio().unwrap();
                             }
@@ -114,5 +86,15 @@ impl TimerSwitch {
                 }
             }
         })
+    }
+}
+
+// 计算下一个整分钟的起始时刻
+fn next_start_of_hour(now: DateTime<Local>) -> DateTime<Local> {
+    let base = now.with_second(0).unwrap().with_nanosecond(0).unwrap();
+    if base <= now {
+        base + tokio::time::Duration::from_secs(60 * 60)
+    } else {
+        base
     }
 }

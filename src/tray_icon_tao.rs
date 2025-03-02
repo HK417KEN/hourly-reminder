@@ -26,8 +26,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     timer_switch.enable();
 
-    let enabled_icon_path = concat!(env!("CARGO_MANIFEST_DIR"), "/icon_enabled.png");
-    let disabled_icon_path = concat!(env!("CARGO_MANIFEST_DIR"), "/icon_disabled.png");
+    let enabled_icon_path = "assets/icon_enabled.png";
+    let disabled_icon_path = "assets/icon_disabled.png";
 
     let enabled_icon = load_icon(std::path::Path::new(enabled_icon_path));
     let disabled_icon = load_icon(std::path::Path::new(disabled_icon_path));
