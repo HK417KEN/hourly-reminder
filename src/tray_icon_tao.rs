@@ -22,7 +22,7 @@ enum UserEvent {
 
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let timer_switch = timer::TimerSwitch::new();
-    let _ = timer_switch.spawn_task();
+    timer_switch.spawn_task();
 
     timer_switch.enable();
 

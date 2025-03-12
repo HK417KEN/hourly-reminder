@@ -78,17 +78,17 @@ pub fn play_audio() -> Result<(), Box<dyn std::error::Error>> {
         let sink = rodio::Sink::try_new(&stream_handle).unwrap();
         let path: &'static str;
     
-        if std::fs::exists("audio.ogg").is_ok_and(|bool| bool == true) {
+        if std::fs::exists("audio.ogg").is_ok_and(|bool| bool) {
             path = "audio.ogg";
-        } else if std::fs::exists("audio.wav").is_ok_and(|bool| bool == true) {
+        } else if std::fs::exists("audio.wav").is_ok_and(|bool| bool) {
             path = "audio.wav";
-        } else if std::fs::exists("assets/audio.ogg").is_ok_and(|bool| bool == true) {
+        } else if std::fs::exists("assets/audio.ogg").is_ok_and(|bool| bool) {
             path = "assets/audio.ogg";
-        } else if std::fs::exists("assets/audio.wav").is_ok_and(|bool| bool == true) {
+        } else if std::fs::exists("assets/audio.wav").is_ok_and(|bool| bool) {
             path = "assets/audio.wav";
-        } else if std::fs::exists("default.ogg").is_ok_and(|bool| bool == true) {
+        } else if std::fs::exists("default.ogg").is_ok_and(|bool| bool) {
             path = "default.ogg";
-        } else if std::fs::exists("assets/default.ogg").is_ok_and(|bool| bool == true) {
+        } else if std::fs::exists("assets/default.ogg").is_ok_and(|bool| bool) {
             path = "assets/default.ogg";
         } else {
             panic!("未找到音频文件!");
