@@ -27,7 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 // 初始化程序
-pub fn init() -> Result<(), Box<dyn std::error::Error>> {
+fn init() -> Result<(), Box<dyn std::error::Error>> {
 
     // 程序运行时马上播放一次音效
     play_audio()?;

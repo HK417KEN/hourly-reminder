@@ -3,10 +3,17 @@ use tokio::sync::watch;
 use tokio::time::{self, Duration, Instant, MissedTickBehavior};
 
 /*
+
+// Example
+
 #[tokio::main]
 async fn main() {
+    start_timer();
+}
+
+fn start_timer() {
     let timer_switch = TimerSwitch::new();
-    let handle = timer_switch.spawn_task();
+    timer_switch.spawn_task();
 
     // 立即启用
     println!("[CTRL] 启用定时任务");
@@ -18,9 +25,8 @@ async fn main() {
     // 禁用任务
     println!("[CTRL] 禁用定时任务");
     timer_switch.disable();
-    
-    handle.await.unwrap();
 }
+
 */
 
 pub struct TimerSwitch {
