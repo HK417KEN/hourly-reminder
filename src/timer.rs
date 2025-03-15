@@ -1,6 +1,6 @@
 use chrono::{DateTime, Local, Timelike};
 use tokio::sync::watch;
-use tokio::time::{self, Duration, Instant, MissedTickBehavior};
+use tokio::time;
 
 /*
 
@@ -63,12 +63,12 @@ impl TimerSwitch {
                         // 计算第一个触发时间
                         let start = next_start_of_hour(Local::now());
                         let mut interval = time::interval_at(
-                            Instant::now() + (start - Local::now()).to_std().unwrap(),
-                            Duration::from_secs(60 * 60)
+                            time::Instant::now() + (start - Local::now()).to_std().unwrap(),
+                            time::Duration::from_secs(60 * 60)
                         );
 
                         // 关键配置：跳过积压的触发
-                        interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+                        interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
 
                         tokio::select! {
                             _ = interval.tick() => {
@@ -99,7 +99,7 @@ impl TimerSwitch {
 fn next_start_of_hour(now: DateTime<Local>) -> DateTime<Local> {
     let base = now.with_minute(0).unwrap().with_second(0).unwrap().with_nanosecond(0).unwrap();
     if base <= now {
-        base + tokio::time::Duration::from_secs(60 * 60)
+        base + time::Duration::from_secs(60 * 60)
     } else {
         base
     }
